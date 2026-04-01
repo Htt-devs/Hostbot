@@ -1,7 +1,7 @@
 {
-  "name": "meu-bot-discord",
+  "name": "hostbot",
   "version": "1.0.0",
-  "description": "Bot Discord hospedado no Render",
+  "description": "Bot de hospedagem Discord",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,6 +10,6 @@
     "discord.js": "^14.18.0"
   },
   "engines": {
-    "node": "18.x"   // ou 20.x, 22.x — Render suporta bem
+    "node": "20.x"
   }
 }
