@@ -1,7 +1,4 @@
 const { Client, GatewayIntentBits, SlashCommandBuilder, ChannelType, EmbedBuilder } = require('discord.js');
-const { QuickDB } = require('quick.db');
-
-const db = new QuickDB();   // ← Isso é obrigatório!
 
 const client = new Client({
   intents: [
@@ -11,6 +8,10 @@ const client = new Client({
     GatewayIntentBits.DirectMessages
   ]
 });
+
+// Armazenamento temporário em memória (reinicia ao redeploy)
+const hostingData = new Map();   // dados temporários do ticket
+const userBots = new Map();      // bots "hospedados"
 
 client.once('ready', () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
@@ -32,7 +33,6 @@ client.on('interactionCreate', async interaction => {
   const { commandName, user, guild } = interaction;
 
   if (commandName === 'host') {
-
     const ticketChannel = await guild.channels.create({
       name: `📦-host-${user.username}`,
       type: ChannelType.GuildText,
@@ -43,35 +43,29 @@ client.on('interactionCreate', async interaction => {
     });
 
     await interaction.reply({ 
-      content: `✅ Ticket criado! Acesse aqui → ${ticketChannel}`, 
+      content: `✅ Ticket criado! → ${ticketChannel}`, 
       ephemeral: true 
     });
 
-    // Embed 1 - RAM
     const embed1 = new EmbedBuilder()
       .setTitle('🚀 Hospedagem de Bot - Etapa 1/3')
-      .setDescription('Qual a **RAM** que seu bot vai usar?\n\nPode escrever:\n`128` ou `128MB`\n`256` ou `256MB`\n`512` ou `512MB`\n`1GB`')
+      .setDescription('Qual a **RAM** que seu bot vai usar?\n\nExemplos:\n`128` ou `128MB`\n`256` ou `256MB`\n`512` ou `512MB`\n`1GB`')
       .setColor(0x5865F2)
-      .setFooter({ text: 'Digite apenas o valor (ex: 256 ou 1GB)' })
+      .setFooter({ text: 'Digite o valor (ex: 256 ou 1GB)' })
       .setTimestamp();
 
     await ticketChannel.send({ embeds: [embed1] });
 
     const filter = m => m.author.id === user.id;
-
     const ramCollector = ticketChannel.createMessageCollector({ filter, time: 300000, max: 1 });
 
     ramCollector.on('collect', async msg => {
       let input = msg.content.toUpperCase().trim().replace(/\s/g, '');
       let ram = 0;
 
-      if (input.endsWith('GB')) {
-        ram = parseFloat(input) * 1024;
-      } else if (input.endsWith('MB')) {
-        ram = parseFloat(input);
-      } else {
-        ram = parseFloat(input);
-      }
+      if (input.endsWith('GB')) ram = parseFloat(input) * 1024;
+      else if (input.endsWith('MB')) ram = parseFloat(input);
+      else ram = parseFloat(input);
 
       if (isNaN(ram) || ram < 64) {
         return msg.reply('❌ RAM inválida! Use 128, 256MB, 1GB, etc. (mínimo 64MB).');
@@ -79,9 +73,8 @@ client.on('interactionCreate', async interaction => {
 
       await msg.delete().catch(() => {});
 
-      await db.set(`hosting.${user.id}.ram`, Math.floor(ram));
+      hostingData.set(user.id, { ram: Math.floor(ram) });
 
-      // Embed 2
       const embed2 = new EmbedBuilder()
         .setTitle('📁 Etapa 2/3 - Arquivo Principal')
         .setDescription(`**RAM definida:** ${Math.floor(ram)} MB\n\nQual é o **arquivo principal** do seu bot?\n\nEx: \`index.js\`, \`bot.js\`, \`main.py\``)
@@ -97,9 +90,10 @@ client.on('interactionCreate', async interaction => {
         const mainFile = m2.content.trim();
         await m2.delete().catch(() => {});
 
-        await db.set(`hosting.${user.id}.mainFile`, mainFile);
+        const data = hostingData.get(user.id) || {};
+        data.mainFile = mainFile;
+        hostingData.set(user.id, data);
 
-        // Embed 3
         const embed3 = new EmbedBuilder()
           .setTitle('📦 Etapa 3/3 - Envie o ZIP')
           .setDescription(`**RAM:** \( {Math.floor(ram)} MB\n**Principal:** \` \){mainFile}\`\n\nEnvie agora o arquivo **.zip** do seu bot.`)
@@ -120,46 +114,50 @@ client.on('interactionCreate', async interaction => {
 
           const botId = Date.now().toString(36).toUpperCase();
 
-          await db.set(`bots.\( {user.id}. \){botId}`, {
+          // Salva o bot "hospedado"
+          if (!userBots.has(user.id)) userBots.set(user.id, {});
+          userBots.get(user.id)[botId] = {
             ram: Math.floor(ram),
             mainFile: mainFile,
             status: 'recebido',
             createdAt: new Date().toISOString()
-          });
+          };
 
           const success = new EmbedBuilder()
-            .setTitle('✅ Sucesso!')
-            .setDescription('ZIP recebido com sucesso.')
+            .setTitle('✅ Arquivo Recebido com Sucesso!')
+            .setDescription('Seu bot foi processado.')
             .setColor(0x57F287)
             .addFields(
               { name: 'RAM', value: `${Math.floor(ram)} MB`, inline: true },
-              { name: 'Principal', value: `\`${mainFile}\``, inline: true }
+              { name: 'Principal', value: `\`${mainFile}\``, inline: true },
+              { name: 'ID', value: `\`${botId}\``, inline: true }
             )
             .setTimestamp();
 
           await ticketChannel.send({ embeds: [success] });
 
-          setTimeout(() => ticketChannel.delete().catch(() => {}), 8000);
+          setTimeout(() => ticketChannel.delete().catch(() => {}), 10000);
         });
       });
     });
   }
 
   if (commandName === 'meusbots') {
-    const bots = await db.get(`bots.${user.id}`) || {};
+    const bots = userBots.get(user.id) || {};
     if (Object.keys(bots).length === 0) {
-      return interaction.reply({ content: 'Você ainda não tem bots hospedados.', ephemeral: true });
+      return interaction.reply({ content: 'Você ainda não hospedou nenhum bot.', ephemeral: true });
     }
 
     let desc = '';
     Object.entries(bots).forEach(([id, b]) => {
-      desc += `**ID:** \`${id}\` | **RAM:** ${b.ram}MB\n`;
+      desc += `**ID:** \`${id}\` | **RAM:** ${b.ram} MB\n`;
     });
 
     const embed = new EmbedBuilder()
       .setTitle('📋 Seus Bots Hospedados')
       .setDescription(desc)
-      .setColor(0x5865F2);
+      .setColor(0x5865F2)
+      .setTimestamp();
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
