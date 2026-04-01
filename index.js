@@ -33,34 +33,26 @@ client.on('interactionCreate', async interaction => {
 
   const { commandName, user, guild } = interaction;
 
-  // ====================== /HOST ======================
   if (commandName === 'host') {
 
-    // Cria o ticket direto no topo (sem categoria)
     const ticketChannel = await guild.channels.create({
       name: `📦-host-${user.username}`,
       type: ChannelType.GuildText,
       permissionOverwrites: [
-        { 
-          id: guild.id, 
-          deny: ['ViewChannel'] 
-        },
-        { 
-          id: user.id, 
-          allow: ['ViewChannel', 'SendMessages', 'AttachFiles', 'ReadMessageHistory'] 
-        }
+        { id: guild.id, deny: ['ViewChannel'] },
+        { id: user.id, allow: ['ViewChannel', 'SendMessages', 'AttachFiles', 'ReadMessageHistory'] }
       ]
     });
 
     await interaction.reply({ 
-      content: `✅ Ticket de hospedagem criado! → ${ticketChannel}`, 
+      content: `✅ Ticket criado! → ${ticketChannel}`, 
       ephemeral: true 
     });
 
-    // Embed 1 - RAM (bem bonito)
+    // Embed 1 - RAM
     const embed1 = new EmbedBuilder()
       .setTitle('🚀 Hospedagem de Bot')
-      .setDescription('**Etapa 1/3**\n\nQual a quantidade de **RAM** que seu bot vai usar? (em MB)\n\n**Recomendações:**\n`128` → Bots pequenos\n`256` → Uso médio (recomendado)\n`512` → Bots maiores')
+      .setDescription('**Etapa 1/3**\n\nQual a quantidade de **RAM** que seu bot vai usar? (em MB)\n\n**Recomendações:**\n`128` → Pequeno\n`256` → Médio (recomendado)\n`512` → Grande')
       .setColor(0x5865F2)
       .setFooter({ text: 'Digite apenas o número (ex: 256)' })
       .setTimestamp();
@@ -69,23 +61,21 @@ client.on('interactionCreate', async interaction => {
 
     const filter = m => m.author.id === user.id;
 
-    // Coletor RAM
     const ramCollector = ticketChannel.createMessageCollector({ filter, time: 300000, max: 1 });
 
     ramCollector.on('collect', async msg => {
       const ram = parseInt(msg.content);
       if (isNaN(ram) || ram < 64) {
-        return msg.reply('❌ RAM inválida! Use um número ≥ 64.').then(m => setTimeout(() => m.delete().catch(() => {}), 6000));
+        return msg.reply('❌ RAM inválida! Use um número maior ou igual a 64.').then(m => setTimeout(() => m.delete().catch(() => {}), 6000));
       }
 
       await msg.delete().catch(() => {});
 
       db.set(`hosting.${user.id}.ram`, ram);
 
-      // Embed 2 - Arquivo Principal
       const embed2 = new EmbedBuilder()
         .setTitle('📁 Etapa 2/3 - Arquivo Principal')
-        .setDescription(`**RAM definida:** ${ram} MB\n\nQual é o **arquivo principal** do seu bot?\n\nExemplos: \`index.js\`, \`bot.js\`, \`main.js\``)
+        .setDescription(`**RAM:** ${ram} MB\n\nQual é o **arquivo principal** do seu bot?\n\nExemplos: \`index.js\`, \`bot.js\`, \`main.js\``)
         .setColor(0x00BFFF)
         .setFooter({ text: 'Digite o nome exato do arquivo' })
         .setTimestamp();
@@ -100,17 +90,15 @@ client.on('interactionCreate', async interaction => {
 
         db.set(`hosting.${user.id}.mainFile`, mainFile);
 
-        // Embed 3 - Enviar ZIP
         const embed3 = new EmbedBuilder()
           .setTitle('📦 Etapa 3/3 - Envie o ZIP')
-          .setDescription(`**RAM:** \( {ram} MB\n**Principal:** \` \){mainFile}\`\n\nEnvie agora o arquivo **.zip** completo do seu bot.`)
+          .setDescription(`**RAM:** \( {ram} MB\n**Principal:** \` \){mainFile}\`\n\nEnvie agora o arquivo **.zip** do seu bot.`)
           .setColor(0x57F287)
           .setFooter({ text: 'Apenas 1 arquivo .zip' })
           .setTimestamp();
 
         await ticketChannel.send({ embeds: [embed3] });
 
-        // Coletor do ZIP
         const zipCollector = ticketChannel.createMessageCollector({ 
           filter: m => m.author.id === user.id && m.attachments.size > 0,
           time: 300000,
@@ -122,7 +110,7 @@ client.on('interactionCreate', async interaction => {
 
           const attachment = zipMsg.attachments.first();
           if (!attachment.name.toLowerCase().endsWith('.zip')) {
-            return ticketChannel.send('❌ Precisa ser um arquivo **.zip**!');
+            return ticketChannel.send('❌ O arquivo deve ser um **.zip**!');
           }
 
           try {
@@ -140,7 +128,6 @@ client.on('interactionCreate', async interaction => {
               return ticketChannel.send(`❌ Arquivo **${mainFile}** não encontrado no ZIP.`);
             }
 
-            // Salva o bot hospedado
             const botId = Date.now().toString(36).toUpperCase();
             db.set(`bots.\( {user.id}. \){botId}`, {
               ram: ram,
@@ -149,40 +136,40 @@ client.on('interactionCreate', async interaction => {
               createdAt: new Date().toISOString()
             });
 
-            // Embed de Sucesso
             const successEmbed = new EmbedBuilder()
               .setTitle('✅ Bot Hospedado com Sucesso!')
               .setDescription('O arquivo foi analisado corretamente.')
               .setColor(0x57F287)
               .addFields(
                 { name: 'RAM', value: `${ram} MB`, inline: true },
-                { name: 'Arquivo Principal', value: `\`${mainFile}\``, inline: true },
-                { name: 'ID do Bot', value: `\`${botId}\``, inline: true }
+                { name: 'Principal', value: `\`${mainFile}\``, inline: true },
+                { name: 'ID', value: `\`${botId}\``, inline: true }
               )
-              .setFooter({ text: `Ticket será fechado automaticamente` })
+              .setFooter({ text: 'Ticket fechando automaticamente...' })
               .setTimestamp();
 
             await ticketChannel.send({ embeds: [successEmbed] });
 
-            // Fecha o ticket após 12 segundos
             setTimeout(() => ticketChannel.delete().catch(() => {}), 12000);
 
           } catch (err) {
             console.error(err);
-            ticketChannel.send('❌ Erro ao processar o ZIP. Tente novamente.');
+            ticketChannel.send('❌ Erro ao processar o ZIP.');
           }
         });
 
         zipCollector.on('end', () => {
           if (zipCollector.collected.size === 0) {
-            ticketChannel.send('⏰ Tempo esgotado.').then(() => setTimeout(() => ticketChannel.delete().catch(() => {}), 5000));
+            ticketChannel.send('⏰ Tempo esgotado para enviar o ZIP.').then(() => 
+              setTimeout(() => ticketChannel.delete().catch(() => {}), 5000)
+            );
           }
         });
       });
     });
   }
 
-  // ====================== /MEUSBOTS ======================
+  // /meusbots
   if (commandName === 'meusbots') {
     const userBots = db.get(`bots.${user.id}`) || {};
     if (Object.keys(userBots).length === 0) {
