@@ -7,9 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.18.0",
-    "adm-zip": "^0.5.16",
-    "quick.db": "^9.1.7"
+    "discord.js": "^14.18.0"
   },
   "engines": {
     "node": "20.x"
