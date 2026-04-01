@@ -14,7 +14,6 @@ client.once('ready', () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
 });
 
-// Registrar comandos
 client.on('ready', async () => {
   const commands = [
     new SlashCommandBuilder().setName('host').setDescription('Iniciar hospedagem'),
@@ -42,14 +41,11 @@ client.on('interactionCreate', async interaction => {
       ]
     });
 
-    await interaction.reply({ 
-      content: `✅ Ticket criado! → ${ticketChannel}`, 
-      ephemeral: true 
-    });
+    await interaction.reply({ content: `✅ Ticket criado! → ${ticketChannel}`, ephemeral: true });
 
     const embed1 = new EmbedBuilder()
       .setTitle('🚀 Hospedagem de Bot')
-      .setDescription('**Etapa 1/3**\n\nQual a quantidade de **RAM** que seu bot vai usar? (em MB)\n\n`128` → Pequeno\n`256` → Médio\n`512` → Grande')
+      .setDescription('**Etapa 1/3**\n\nQual a quantidade de **RAM** (em MB)?\n\n`128` → Pequeno\n`256` → Médio\n`512` → Grande')
       .setColor(0x5865F2)
       .setFooter({ text: 'Digite apenas o número' })
       .setTimestamp();
@@ -95,7 +91,7 @@ client.on('interactionCreate', async interaction => {
 
         await ticketChannel.send({ embeds: [embed3] });
 
-        // Por enquanto só avisa (sem processar ZIP ainda)
+        // Coletor simples do ZIP (sem análise por enquanto)
         const zipCollector = ticketChannel.createMessageCollector({ 
           filter: m => m.author.id === user.id && m.attachments.size > 0,
           time: 300000,
@@ -104,18 +100,19 @@ client.on('interactionCreate', async interaction => {
 
         zipCollector.on('collect', async zipMsg => {
           await zipMsg.delete().catch(() => {});
+
           const botId = Date.now().toString(36).toUpperCase();
 
           db.set(`bots.\( {user.id}. \){botId}`, {
-            ram: ram,
-            mainFile: mainFile,
+            ram,
+            mainFile,
             status: 'recebido',
             createdAt: new Date().toISOString()
           });
 
           const success = new EmbedBuilder()
             .setTitle('✅ Arquivo Recebido!')
-            .setDescription('O ZIP foi recebido. Processamento completo em breve.')
+            .setDescription('ZIP recebido com sucesso.')
             .setColor(0x57F287)
             .addFields(
               { name: 'RAM', value: `${ram} MB`, inline: true },
@@ -125,7 +122,7 @@ client.on('interactionCreate', async interaction => {
 
           await ticketChannel.send({ embeds: [success] });
 
-          setTimeout(() => ticketChannel.delete().catch(() => {}), 10000);
+          setTimeout(() => ticketChannel.delete().catch(() => {}), 8000);
         });
       });
     });
@@ -143,7 +140,7 @@ client.on('interactionCreate', async interaction => {
     });
 
     const embed = new EmbedBuilder()
-      .setTitle('📋 Seus Bots')
+      .setTitle('📋 Seus Bots Hospedados')
       .setDescription(desc)
       .setColor(0x5865F2);
 
@@ -151,7 +148,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (commandName === 'parar' || commandName === 'reiniciar') {
-    await interaction.reply({ content: '🔧 Em desenvolvimento.', ephemeral: true });
+    await interaction.reply({ content: '🔧 Comando em desenvolvimento.', ephemeral: true });
   }
 });
 
