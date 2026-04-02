@@ -1,13 +1,15 @@
 {
-  "name": "hostbot",
+  "name": "discord-bot-host",
   "version": "1.0.0",
-  "description": "Bot de hospedagem Discord",
-  "main": "index.js",
+  "main": "bot.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node bot.js"
   },
   "dependencies": {
-    "discord.js": "^14.18.0"
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.0",
+    "axios": "^1.7.0",
+    "adm-zip": "^0.5.16"
   },
   "engines": {
     "node": "20.x"
