@@ -14,8 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));           // Serve a pasta public
-app.use(express.static(path.join(__dirname, 'public'))); // Backup para Render
+app.use(express.static('public'));
 
 const client = new Client({
   intents: [
@@ -26,8 +25,9 @@ const client = new Client({
   ]
 });
 
-const hostedBots = new Map();      // Bots que aparecem no painel
+const hostedBots = new Map();
 const ticketsEmProgresso = new Map();
+const userSessions = new Map(); // discordId → user data
 
 // ==================== DISCORD BOT ====================
 client.once('ready', () => {
@@ -83,7 +83,7 @@ client.on('messageCreate', async message => {
     else if (input.endsWith('MB')) ram = parseFloat(input);
     else ram = parseFloat(input);
 
-    if (isNaN(ram) || ram < 64) return message.reply('❌ RAM inválida! Use 128MB, 256MB, 512MB ou 1GB.');
+    if (isNaN(ram) || ram < 64) return message.reply('❌ RAM inválida!');
 
     ticket.ram = Math.floor(ram);
     ticket.etapa = 2;
@@ -92,7 +92,7 @@ client.on('messageCreate', async message => {
     const embed = new EmbedBuilder()
       .setColor(0x00BFFF)
       .setTitle('📁 Etapa 2/3')
-      .setDescription(`**RAM:** ${ticket.ram} MB\n\nQual é o arquivo principal? (ex: index.js)`);
+      .setDescription(`**RAM:** ${ticket.ram} MB\n\nQual é o arquivo principal?`);
 
     await message.channel.send({ embeds: [embed] });
     return;
@@ -107,7 +107,7 @@ client.on('messageCreate', async message => {
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
       .setTitle('📦 Etapa 3/3')
-      .setDescription('Envie o arquivo **.zip** completo do seu bot.');
+      .setDescription('Envie o arquivo **.zip** do seu bot.');
 
     await message.channel.send({ embeds: [embed] });
     return;
@@ -116,9 +116,7 @@ client.on('messageCreate', async message => {
   // Etapa 3: ZIP
   if (ticket.etapa === 3 && message.attachments.size > 0) {
     const attachment = message.attachments.first();
-    if (!attachment.name.toLowerCase().endsWith('.zip')) {
-      return message.reply('❌ Envie um arquivo .zip válido.');
-    }
+    if (!attachment.name.toLowerCase().endsWith('.zip')) return message.reply('❌ Envie um .zip');
 
     await message.delete().catch(() => {});
 
@@ -127,13 +125,9 @@ client.on('messageCreate', async message => {
       const zip = new AdmZip(response.data);
       const entries = zip.getEntries();
 
-      const mainExists = entries.some(e => 
-        e.entryName === ticket.mainFile || e.entryName.endsWith('/' + ticket.mainFile)
-      );
+      const mainExists = entries.some(e => e.entryName === ticket.mainFile || e.entryName.endsWith('/' + ticket.mainFile));
 
-      if (!mainExists) {
-        return message.channel.send(`❌ Arquivo **${ticket.mainFile}** não encontrado no ZIP.`);
-      }
+      if (!mainExists) return message.channel.send(`❌ Arquivo ${ticket.mainFile} não encontrado.`);
 
       const botId = `bot-${Date.now().toString(36)}`;
 
@@ -162,14 +156,52 @@ client.on('messageCreate', async message => {
 
     } catch (err) {
       console.error(err);
-      await message.channel.send('❌ Erro ao processar o ZIP. Tente novamente.');
+      await message.channel.send('❌ Erro ao processar o ZIP.');
     }
 
     ticketsEmProgresso.delete(message.channel.id);
   }
 });
 
-// ==================== API + PAINEL WEB ====================
+// ==================== AUTH DISCORD ====================
+app.get('/auth/discord', (req, res) => {
+  const clientId = process.env.DISCORD_CLIENT_ID;
+  const redirectUri = `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`;
+  const scope = 'identify';
+  const authUrl = `https://discord.com/api/oauth2/authorize?client_id=\( {clientId}&redirect_uri= \){encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`;
+  res.redirect(authUrl);
+});
+
+app.get('/auth/discord/callback', async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.send('Erro na autenticação');
+
+  try {
+    const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
+      client_id: process.env.DISCORD_CLIENT_ID,
+      client_secret: process.env.DISCORD_CLIENT_SECRET,
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`
+    }), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    const userResponse = await axios.get('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` }
+    });
+
+    const user = userResponse.data;
+    userSessions.set(user.id, user);
+
+    res.redirect('/');
+  } catch (err) {
+    console.error(err);
+    res.send('Erro ao conectar com Discord');
+  }
+});
+
+// ==================== API ====================
 app.get('/api/bots', (req, res) => {
   res.json(Array.from(hostedBots.values()));
 });
@@ -184,17 +216,9 @@ app.post('/api/bots/:id/:action', (req, res) => {
   res.json({ success: true });
 });
 
-// Rota principal - força carregar o index.html
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🌐 Painel web rodando na porta ${PORT}`);
-  console.log(`Acesse: https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'seu-link'}.onrender.com`);
+  console.log(`🌐 Painel rodando na porta ${PORT}`);
 });
 
-client.login(process.env.DISCORD_TOKEN).catch(err => {
-  console.error('❌ Erro no login:', err.message);
-});
+client.login(process.env.DISCORD_TOKEN).catch(console.error);
