@@ -14,7 +14,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));           // Serve a pasta public
+app.use(express.static(path.join(__dirname, 'public'))); // Backup para Render
 
 const client = new Client({
   intents: [
@@ -25,12 +26,12 @@ const client = new Client({
   ]
 });
 
-const hostedBots = new Map(); // id → dados do bot
+const hostedBots = new Map();      // Bots que aparecem no painel
 const ticketsEmProgresso = new Map();
 
 // ==================== DISCORD BOT ====================
 client.once('ready', () => {
-  console.log(`✅ Bot online como ${client.user.tag}`);
+  console.log(`✅ Bot Discord online como ${client.user.tag}`);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -59,11 +60,11 @@ client.on('interactionCreate', async interaction => {
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle('🚀 Hospedagem de Bot')
-    .setDescription('**Etapa 1/3** - Quanto de RAM seu bot vai usar?\n\n`128MB` `256MB` `512MB` `1GB`')
+    .setDescription('**Etapa 1/3 - RAM**\n\nQuanto de RAM seu bot vai usar?\n\nExemplos: `128MB`, `256MB`, `512MB`, `1GB`')
     .setTimestamp();
 
   await ticketChannel.send({ embeds: [embed] });
-  await interaction.reply({ content: `✅ Ticket criado → ${ticketChannel}`, ephemeral: true });
+  await interaction.reply({ content: `✅ Ticket criado! → ${ticketChannel}`, ephemeral: true });
 });
 
 client.on('messageCreate', async message => {
@@ -73,7 +74,7 @@ client.on('messageCreate', async message => {
   const ticket = ticketsEmProgresso.get(message.channel.id);
   if (!ticket || ticket.userId !== message.author.id) return;
 
-  // Etapa 1 - RAM
+  // Etapa 1: RAM
   if (ticket.etapa === 1) {
     let ram = 0;
     const input = message.content.toUpperCase().trim().replace(/\s/g, '');
@@ -82,7 +83,7 @@ client.on('messageCreate', async message => {
     else if (input.endsWith('MB')) ram = parseFloat(input);
     else ram = parseFloat(input);
 
-    if (isNaN(ram) || ram < 64) return message.reply('❌ RAM inválida!');
+    if (isNaN(ram) || ram < 64) return message.reply('❌ RAM inválida! Use 128MB, 256MB, 512MB ou 1GB.');
 
     ticket.ram = Math.floor(ram);
     ticket.etapa = 2;
@@ -97,7 +98,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // Etapa 2 - Arquivo principal
+  // Etapa 2: Arquivo principal
   if (ticket.etapa === 2) {
     ticket.mainFile = message.content.trim();
     ticket.etapa = 3;
@@ -106,16 +107,18 @@ client.on('messageCreate', async message => {
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
       .setTitle('📦 Etapa 3/3')
-      .setDescription(`Envie o arquivo **.zip** do seu bot.`);
+      .setDescription('Envie o arquivo **.zip** completo do seu bot.');
 
     await message.channel.send({ embeds: [embed] });
     return;
   }
 
-  // Etapa 3 - ZIP
+  // Etapa 3: ZIP
   if (ticket.etapa === 3 && message.attachments.size > 0) {
     const attachment = message.attachments.first();
-    if (!attachment.name.toLowerCase().endsWith('.zip')) return message.reply('❌ Envie um .zip');
+    if (!attachment.name.toLowerCase().endsWith('.zip')) {
+      return message.reply('❌ Envie um arquivo .zip válido.');
+    }
 
     await message.delete().catch(() => {});
 
@@ -124,9 +127,13 @@ client.on('messageCreate', async message => {
       const zip = new AdmZip(response.data);
       const entries = zip.getEntries();
 
-      const mainExists = entries.some(e => e.entryName === ticket.mainFile || e.entryName.endsWith('/' + ticket.mainFile));
+      const mainExists = entries.some(e => 
+        e.entryName === ticket.mainFile || e.entryName.endsWith('/' + ticket.mainFile)
+      );
 
-      if (!mainExists) return message.channel.send(`❌ Arquivo ${ticket.mainFile} não encontrado.`);
+      if (!mainExists) {
+        return message.channel.send(`❌ Arquivo **${ticket.mainFile}** não encontrado no ZIP.`);
+      }
 
       const botId = `bot-${Date.now().toString(36)}`;
 
@@ -142,49 +149,52 @@ client.on('messageCreate', async message => {
 
       const success = new EmbedBuilder()
         .setColor(0x00FF00)
-        .setTitle('✅ Bot Hospedado!')
-        .setDescription(`ID: ${botId}\nRAM: ${ticket.ram} MB`)
-        .setTimestamp();
+        .setTitle('✅ Bot Hospedado com Sucesso!')
+        .addFields(
+          { name: 'ID', value: botId },
+          { name: 'RAM', value: `${ticket.ram} MB` },
+          { name: 'Principal', value: ticket.mainFile }
+        );
 
       await message.channel.send({ embeds: [success] });
 
-      setTimeout(() => message.channel.delete().catch(() => {}), 8000);
+      setTimeout(() => message.channel.delete().catch(() => {}), 10000);
 
     } catch (err) {
       console.error(err);
-      message.channel.send('❌ Erro ao processar ZIP.');
+      await message.channel.send('❌ Erro ao processar o ZIP. Tente novamente.');
     }
 
     ticketsEmProgresso.delete(message.channel.id);
   }
 });
 
-client.login(process.env.DISCORD_TOKEN).catch(console.error);
-
-// ==================== API PARA O PAINEL ====================
+// ==================== API + PAINEL WEB ====================
 app.get('/api/bots', (req, res) => {
   res.json(Array.from(hostedBots.values()));
 });
 
-app.post('/api/bots/:id/start', (req, res) => {
+app.post('/api/bots/:id/:action', (req, res) => {
   const bot = hostedBots.get(req.params.id);
-  if (bot) bot.status = 'online';
+  if (!bot) return res.status(404).json({ error: 'Bot não encontrado' });
+
+  if (req.params.action === 'start' || req.params.action === 'restart') bot.status = 'online';
+  if (req.params.action === 'stop') bot.status = 'offline';
+
   res.json({ success: true });
 });
 
-app.post('/api/bots/:id/stop', (req, res) => {
-  const bot = hostedBots.get(req.params.id);
-  if (bot) bot.status = 'offline';
-  res.json({ success: true });
-});
-
-app.post('/api/bots/:id/restart', (req, res) => {
-  const bot = hostedBots.get(req.params.id);
-  if (bot) bot.status = 'online';
-  res.json({ success: true });
+// Rota principal - força carregar o index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🌐 Painel rodando na porta ${PORT}`);
+  console.log(`🌐 Painel web rodando na porta ${PORT}`);
+  console.log(`Acesse: https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'seu-link'}.onrender.com`);
+});
+
+client.login(process.env.DISCORD_TOKEN).catch(err => {
+  console.error('❌ Erro no login:', err.message);
 });
