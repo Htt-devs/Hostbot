@@ -25,9 +25,9 @@ const client = new Client({
   ]
 });
 
-const hostedBots = new Map();           // bots hospedados
+const hostedBots = new Map();
 const ticketsEmProgresso = new Map();
-const userSessions = new Map();         // discordId → user data
+const userSessions = new Map();
 
 // ==================== DISCORD BOT ====================
 client.once('ready', () => {
@@ -135,8 +135,7 @@ client.on('messageCreate', async message => {
         mainFile: ticket.mainFile,
         status: 'online',
         usuario: ticket.username,
-        criadoEm: new Date().toISOString(),
-        discordId: ticket.userId
+        criadoEm: new Date().toISOString()
       });
 
       const success = new EmbedBuilder()
@@ -161,11 +160,9 @@ client.on('messageCreate', async message => {
   }
 });
 
-// ==================== AUTH DISCORD (REAL) ====================
+// ==================== AUTH DISCORD ====================
 app.get('/auth/discord', (req, res) => {
-  const clientId = process.env.DISCORD_CLIENT_ID;
-  if (!clientId) return res.send('Erro: DISCORD_CLIENT_ID não configurado no Render');
-
+  const clientId = "1485093454517371070";   // seu Client ID fixo
   const redirectUri = `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`;
   const authUrl = `https://discord.com/api/oauth2/authorize?client_id=\( {clientId}&redirect_uri= \){encodeURIComponent(redirectUri)}&response_type=code&scope=identify`;
 
@@ -177,12 +174,10 @@ app.get('/auth/discord/callback', async (req, res) => {
   const code = req.query.code;
   if (!code) return res.send('Erro: Nenhum código recebido do Discord');
 
-  console.log('Código recebido:', code);
-
   try {
     const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
-      client_id: process.env.DISCORD_CLIENT_ID,
-      client_secret: process.env.DISCORD_CLIENT_SECRET,
+      client_id: "1485093454517371070",
+      client_secret: "0_IJOByjHYSm_-_gGh7qB1VC_FCBrAAU",   // seu Client Secret fixo
       grant_type: 'authorization_code',
       code: code,
       redirect_uri: `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`
@@ -206,7 +201,7 @@ app.get('/auth/discord/callback', async (req, res) => {
   }
 });
 
-// ==================== API PARA O PAINEL ====================
+// ==================== API ====================
 app.get('/api/bots', (req, res) => {
   res.json(Array.from(hostedBots.values()));
 });
