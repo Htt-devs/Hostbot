@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { Client, GatewayIntentBits, ChannelType, EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { Client, GatewayIntentBits, ChannelType, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import AdmZip from 'adm-zip';
 import axios from 'axios';
 import dotenv from 'dotenv';
@@ -27,7 +27,6 @@ const client = new Client({
 
 const hostedBots = new Map();
 const ticketsEmProgresso = new Map();
-const userSessions = new Map();
 
 // ==================== DISCORD BOT ====================
 client.once('ready', () => {
@@ -160,9 +159,9 @@ client.on('messageCreate', async message => {
   }
 });
 
-// ==================== AUTH DISCORD ====================
+// ==================== AUTH DISCORD (COM CLIENT ID E SECRET FIXOS) ====================
 app.get('/auth/discord', (req, res) => {
-  const clientId = "1485093454517371070";   // seu Client ID fixo
+  const clientId = "1485093454517371070";
   const redirectUri = `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`;
   const authUrl = `https://discord.com/api/oauth2/authorize?client_id=\( {clientId}&redirect_uri= \){encodeURIComponent(redirectUri)}&response_type=code&scope=identify`;
 
@@ -177,7 +176,7 @@ app.get('/auth/discord/callback', async (req, res) => {
   try {
     const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
       client_id: "1485093454517371070",
-      client_secret: "0_IJOByjHYSm_-_gGh7qB1VC_FCBrAAU",   // seu Client Secret fixo
+      client_secret: "0_IJOByjHYSm_-_gGh7qB1VC_FCBrAAU",   // seu secret
       grant_type: 'authorization_code',
       code: code,
       redirect_uri: `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`
@@ -191,8 +190,6 @@ app.get('/auth/discord/callback', async (req, res) => {
 
     const user = userResponse.data;
     console.log(`✅ Usuário autenticado: \( {user.username} ( \){user.id})`);
-
-    userSessions.set(user.id, user);
 
     res.redirect('/');
   } catch (err) {
