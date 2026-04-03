@@ -1,215 +1,60 @@
 import express from 'express';
 import cors from 'cors';
-import { Client, GatewayIntentBits, ChannelType, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
-import AdmZip from 'adm-zip';
 import axios from 'axios';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ]
-});
-
-const hostedBots = new Map();
-const ticketsEmProgresso = new Map();
-
-// ==================== AUTH DISCORD (ATUALIZADO COM SEUS NOVOS VALORES) ====================
+// ==================== AUTH DISCORD ====================
 app.get('/auth/discord', (req, res) => {
-  const authUrl = "https://discord.com/oauth2/authorize?client_id=1485093454517371070&response_type=code&redirect_uri=https%3A%2F%2Fhostbot-i05r.onrender.com%2Fauth%2Fdiscord%2Fcallback&scope=identify";
-  
-  console.log("🔗 Redirecionando para Discord Auth...");
+  const authUrl = "https://discord.com/oauth2/authorize?client_id=1485093454517371070&response_type=code&redirect_uri=https://hostbot-i05r.onrender.com/auth/discord/callback&scope=identify";
+  console.log("🔗 Redirecionando para Discord...");
   res.redirect(authUrl);
 });
 
 app.get('/auth/discord/callback', async (req, res) => {
   const code = req.query.code;
-  if (!code) return res.send('Erro: Nenhum código recebido do Discord');
+
+  if (!code) {
+    console.log("❌ Nenhum code recebido");
+    return res.send("Erro: Nenhum código recebido do Discord. Volte e clique no botão novamente.");
+  }
+
+  console.log("✅ Code recebido:", code);
 
   try {
-    const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
+    const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', {
       client_id: "1485093454517371070",
-      client_secret: "seEdu7PPJBi3mjAUecNvCYbIeo4HVfMG",   // novo secret
-      grant_type: 'authorization_code',
+      client_secret: "seEdu7PPJBi3mjAUecNvCYbIeo4HVfMG",
+      grant_type: "authorization_code",
       code: code,
       redirect_uri: "https://hostbot-i05r.onrender.com/auth/discord/callback"
-    }), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    }, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }
     });
+
+    console.log("✅ Token recebido com sucesso");
 
     const userResponse = await axios.get('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` }
     });
 
-    const user = userResponse.data;
-    console.log(`✅ Usuário autenticado: \( {user.username} ( \){user.id})`);
+    console.log(`🎉 Login bem-sucedido! Usuário: ${userResponse.data.username}`);
 
-    res.redirect('/');
+    res.redirect('/');  // volta para o painel principal
+
   } catch (err) {
-    console.error('Erro no callback:', err.response ? err.response.data : err.message);
-    res.send('Erro ao conectar com Discord. Tente novamente.');
+    console.error("Erro completo no callback:", err.response ? err.response.data : err.message);
+    res.send(`Erro ao conectar com Discord.<br><br>Detalhe: ${err.message}`);
   }
 });
 
-// ==================== DISCORD BOT - /host ====================
-client.once('ready', () => {
-  console.log(`✅ Bot Discord online como ${client.user.tag}`);
-});
-
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isCommand() || interaction.commandName !== 'host') return;
-
-  const guild = interaction.guild;
-  const user = interaction.user;
-
-  const ticketChannel = await guild.channels.create({
-    name: `📦-host-${user.username}`,
-    type: ChannelType.GuildText,
-    permissionOverwrites: [
-      { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-      { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] }
-    ]
-  });
-
-  ticketsEmProgresso.set(ticketChannel.id, {
-    userId: user.id,
-    username: user.username,
-    etapa: 1,
-    ram: null,
-    mainFile: null
-  });
-
-  const embed = new EmbedBuilder()
-    .setColor(0x5865F2)
-    .setTitle('🚀 Hospedagem de Bot')
-    .setDescription('**Etapa 1/3 - RAM**\n\nQuanto de RAM seu bot vai usar?\n\nExemplos: `128MB`, `256MB`, `512MB`, `1GB`')
-    .setTimestamp();
-
-  await ticketChannel.send({ embeds: [embed] });
-  await interaction.reply({ content: `✅ Ticket criado! → ${ticketChannel}`, ephemeral: true });
-});
-
-client.on('messageCreate', async message => {
-  if (message.author.bot) return;
-  if (!message.channel.name.startsWith('📦-host-')) return;
-
-  const ticket = ticketsEmProgresso.get(message.channel.id);
-  if (!ticket || ticket.userId !== message.author.id) return;
-
-  if (ticket.etapa === 1) {
-    let ram = 0;
-    const input = message.content.toUpperCase().trim().replace(/\s/g, '');
-
-    if (input.endsWith('GB')) ram = parseFloat(input) * 1024;
-    else if (input.endsWith('MB')) ram = parseFloat(input);
-    else ram = parseFloat(input);
-
-    if (isNaN(ram) || ram < 64) return message.reply('❌ RAM inválida!');
-
-    ticket.ram = Math.floor(ram);
-    ticket.etapa = 2;
-    await message.delete().catch(() => {});
-
-    const embed = new EmbedBuilder()
-      .setColor(0x00BFFF)
-      .setTitle('📁 Etapa 2/3')
-      .setDescription(`**RAM:** ${ticket.ram} MB\n\nQual é o arquivo principal?`);
-
-    await message.channel.send({ embeds: [embed] });
-    return;
-  }
-
-  if (ticket.etapa === 2) {
-    ticket.mainFile = message.content.trim();
-    ticket.etapa = 3;
-    await message.delete().catch(() => {});
-
-    const embed = new EmbedBuilder()
-      .setColor(0x57F287)
-      .setTitle('📦 Etapa 3/3')
-      .setDescription('Envie o arquivo **.zip** do seu bot.');
-
-    await message.channel.send({ embeds: [embed] });
-    return;
-  }
-
-  if (ticket.etapa === 3 && message.attachments.size > 0) {
-    const attachment = message.attachments.first();
-    if (!attachment.name.toLowerCase().endsWith('.zip')) return message.reply('❌ Envie um .zip');
-
-    await message.delete().catch(() => {});
-
-    try {
-      const response = await axios.get(attachment.url, { responseType: 'arraybuffer' });
-      const zip = new AdmZip(response.data);
-      const entries = zip.getEntries();
-
-      const mainExists = entries.some(e => e.entryName === ticket.mainFile || e.entryName.endsWith('/' + ticket.mainFile));
-
-      if (!mainExists) return message.channel.send(`❌ Arquivo ${ticket.mainFile} não encontrado.`);
-
-      const botId = `bot-${Date.now().toString(36)}`;
-
-      hostedBots.set(botId, {
-        id: botId,
-        nome: `Bot de ${ticket.username}`,
-        ram: ticket.ram,
-        mainFile: ticket.mainFile,
-        status: 'online',
-        usuario: ticket.username,
-        criadoEm: new Date().toISOString()
-      });
-
-      const success = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('✅ Bot Hospedado com Sucesso!')
-        .addFields(
-          { name: 'ID', value: botId },
-          { name: 'RAM', value: `${ticket.ram} MB` },
-          { name: 'Principal', value: ticket.mainFile }
-        );
-
-      await message.channel.send({ embeds: [success] });
-      setTimeout(() => message.channel.delete().catch(() => {}), 10000);
-
-    } catch (err) {
-      console.error(err);
-      await message.channel.send('❌ Erro ao processar o ZIP.');
-    }
-
-    ticketsEmProgresso.delete(message.channel.id);
-  }
-});
-
-// ==================== API ====================
-app.get('/api/bots', (req, res) => {
-  res.json(Array.from(hostedBots.values()));
-});
-
-app.post('/api/bots/:id/:action', (req, res) => {
-  const bot = hostedBots.get(req.params.id);
-  if (!bot) return res.status(404).json({ error: 'Bot não encontrado' });
-
-  if (req.params.action === 'start' || req.params.action === 'restart') bot.status = 'online';
-  if (req.params.action === 'stop') bot.status = 'offline';
-
-  res.json({ success: true });
-});
+// API simples
+app.get('/api/bots', (req, res) => res.json([])); // temporário
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🌐 Painel rodando na porta ${PORT}`);
-});
-
-client.login(process.env.DISCORD_TOKEN).catch(err => {
-  console.error('Erro no login:', err.message);
+  console.log(`🌐 Painel rodando em http://localhost:${PORT}`);
 });
