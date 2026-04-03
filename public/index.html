@@ -6,18 +6,10 @@
   <title>HostBot Panel</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    body { font-family: 'Inter', sans-serif; }
-    .card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-    .card:hover { transform: translateY(-8px); box-shadow: 0 25px 50px -12px rgb(139 92 246 / 0.3); }
-  </style>
 </head>
 <body class="bg-zinc-950 text-white min-h-screen">
-  <div class="bg-zinc-900 border-b border-zinc-800 px-8 py-6 flex items-center justify-between sticky top-0 z-50">
-    <div class="flex items-center gap-4">
-      <div class="text-3xl font-bold tracking-tighter bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">HostBot</div>
-    </div>
+  <div class="bg-zinc-900 border-b border-zinc-800 px-8 py-6 flex items-center justify-between">
+    <div class="text-3xl font-bold tracking-tighter bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">HostBot</div>
 
     <div onclick="loginWithDiscord()" class="flex items-center gap-3 bg-zinc-800 hover:bg-zinc-700 px-6 py-3 rounded-3xl cursor-pointer transition-all">
       <i class="fa-brands fa-discord text-[#5865F2] text-2xl"></i>
@@ -65,7 +57,7 @@
 
       bots.forEach(bot => {
         const card = document.createElement('div');
-        card.className = "card bg-zinc-900 border border-zinc-800 rounded-3xl p-8";
+        card.className = "bg-zinc-900 border border-zinc-800 rounded-3xl p-8";
         card.innerHTML = `
           <div class="flex justify-between items-start">
             <h3 class="text-2xl font-semibold">${bot.nome}</h3>
