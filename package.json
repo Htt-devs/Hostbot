@@ -2,9 +2,9 @@
   "name": "hostbot",
   "version": "1.0.0",
   "type": "module",
-  "main": "bot.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.18.0",
