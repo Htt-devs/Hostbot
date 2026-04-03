@@ -25,9 +25,9 @@ const client = new Client({
   ]
 });
 
-const hostedBots = new Map();           // todos os bots hospedados
-const ticketsEmProgresso = new Map();   // tickets em andamento
-const userSessions = new Map();         // discordId → dados do usuário
+const hostedBots = new Map();           // bots hospedados
+const ticketsEmProgresso = new Map();
+const userSessions = new Map();         // discordId → user data
 
 // ==================== DISCORD BOT ====================
 client.once('ready', () => {
@@ -161,10 +161,10 @@ client.on('messageCreate', async message => {
   }
 });
 
-// ==================== AUTH DISCORD (REAL) ====================
+// ==================== AUTH DISCORD ====================
 app.get('/auth/discord', (req, res) => {
   const clientId = process.env.DISCORD_CLIENT_ID;
-  if (!clientId) return res.send('DISCORD_CLIENT_ID não configurado');
+  if (!clientId) return res.send('DISCORD_CLIENT_ID não configurado no Render');
 
   const redirectUri = `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`;
   const authUrl = `https://discord.com/api/oauth2/authorize?client_id=\( {clientId}&redirect_uri= \){encodeURIComponent(redirectUri)}&response_type=code&scope=identify`;
@@ -174,7 +174,7 @@ app.get('/auth/discord', (req, res) => {
 
 app.get('/auth/discord/callback', async (req, res) => {
   const code = req.query.code;
-  if (!code) return res.send('Erro: Nenhum código recebido');
+  if (!code) return res.send('Erro: Nenhum código recebido do Discord');
 
   try {
     const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
@@ -198,11 +198,11 @@ app.get('/auth/discord/callback', async (req, res) => {
     res.redirect('/');
   } catch (err) {
     console.error('Erro no callback:', err.response ? err.response.data : err.message);
-    res.send('Erro ao conectar com Discord. Tente novamente.');
+    res.send('Erro ao conectar com Discord. Verifique se o Client Secret está correto no Render.');
   }
 });
 
-// ==================== API PARA O PAINEL ====================
+// ==================== API ====================
 app.get('/api/bots', (req, res) => {
   res.json(Array.from(hostedBots.values()));
 });
@@ -223,5 +223,5 @@ app.listen(PORT, () => {
 });
 
 client.login(process.env.DISCORD_TOKEN).catch(err => {
-  console.error('Erro no login do bot:', err.message);
+  console.error('Erro no login:', err.message);
 });
