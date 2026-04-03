@@ -25,9 +25,9 @@ const client = new Client({
   ]
 });
 
-const hostedBots = new Map();
-const ticketsEmProgresso = new Map();
-const userSessions = new Map(); // discordId → user data
+const hostedBots = new Map();           // todos os bots hospedados
+const ticketsEmProgresso = new Map();   // tickets em andamento
+const userSessions = new Map();         // discordId → dados do usuário
 
 // ==================== DISCORD BOT ====================
 client.once('ready', () => {
@@ -74,7 +74,6 @@ client.on('messageCreate', async message => {
   const ticket = ticketsEmProgresso.get(message.channel.id);
   if (!ticket || ticket.userId !== message.author.id) return;
 
-  // Etapa 1: RAM
   if (ticket.etapa === 1) {
     let ram = 0;
     const input = message.content.toUpperCase().trim().replace(/\s/g, '');
@@ -98,7 +97,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // Etapa 2: Arquivo principal
   if (ticket.etapa === 2) {
     ticket.mainFile = message.content.trim();
     ticket.etapa = 3;
@@ -113,7 +111,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // Etapa 3: ZIP
   if (ticket.etapa === 3 && message.attachments.size > 0) {
     const attachment = message.attachments.first();
     if (!attachment.name.toLowerCase().endsWith('.zip')) return message.reply('❌ Envie um .zip');
@@ -138,7 +135,8 @@ client.on('messageCreate', async message => {
         mainFile: ticket.mainFile,
         status: 'online',
         usuario: ticket.username,
-        criadoEm: new Date().toISOString()
+        criadoEm: new Date().toISOString(),
+        discordId: ticket.userId
       });
 
       const success = new EmbedBuilder()
@@ -163,18 +161,20 @@ client.on('messageCreate', async message => {
   }
 });
 
-// ==================== AUTH DISCORD ====================
+// ==================== AUTH DISCORD (REAL) ====================
 app.get('/auth/discord', (req, res) => {
   const clientId = process.env.DISCORD_CLIENT_ID;
+  if (!clientId) return res.send('DISCORD_CLIENT_ID não configurado');
+
   const redirectUri = `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`;
-  const scope = 'identify';
-  const authUrl = `https://discord.com/api/oauth2/authorize?client_id=\( {clientId}&redirect_uri= \){encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`;
+  const authUrl = `https://discord.com/api/oauth2/authorize?client_id=\( {clientId}&redirect_uri= \){encodeURIComponent(redirectUri)}&response_type=code&scope=identify`;
+
   res.redirect(authUrl);
 });
 
 app.get('/auth/discord/callback', async (req, res) => {
   const code = req.query.code;
-  if (!code) return res.send('Erro na autenticação');
+  if (!code) return res.send('Erro: Nenhum código recebido');
 
   try {
     const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
@@ -194,14 +194,15 @@ app.get('/auth/discord/callback', async (req, res) => {
     const user = userResponse.data;
     userSessions.set(user.id, user);
 
+    console.log(`✅ Usuário autenticado: \( {user.username} ( \){user.id})`);
     res.redirect('/');
   } catch (err) {
-    console.error(err);
-    res.send('Erro ao conectar com Discord');
+    console.error('Erro no callback:', err.response ? err.response.data : err.message);
+    res.send('Erro ao conectar com Discord. Tente novamente.');
   }
 });
 
-// ==================== API ====================
+// ==================== API PARA O PAINEL ====================
 app.get('/api/bots', (req, res) => {
   res.json(Array.from(hostedBots.values()));
 });
@@ -221,4 +222,6 @@ app.listen(PORT, () => {
   console.log(`🌐 Painel rodando na porta ${PORT}`);
 });
 
-client.login(process.env.DISCORD_TOKEN).catch(console.error);
+client.login(process.env.DISCORD_TOKEN).catch(err => {
+  console.error('Erro no login do bot:', err.message);
+});
