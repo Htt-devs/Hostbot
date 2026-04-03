@@ -14,7 +14,6 @@
   </style>
 </head>
 <body class="bg-zinc-950 text-white min-h-screen">
-  <!-- Top Bar -->
   <div class="bg-zinc-900 border-b border-zinc-800 px-8 py-6 flex items-center justify-between sticky top-0 z-50">
     <div class="flex items-center gap-4">
       <div class="text-3xl font-bold tracking-tighter bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">HostBot</div>
@@ -28,31 +27,18 @@
   </div>
 
   <div class="max-w-6xl mx-auto p-8">
-    <div class="mb-12">
-      <h1 class="text-5xl font-bold tracking-tight">Dashboard</h1>
-      <p class="text-zinc-400 mt-2">Gerencie seus bots hospedados</p>
+    <div class="flex justify-between items-end mb-10">
+      <div>
+        <h1 class="text-5xl font-bold tracking-tight">Dashboard</h1>
+        <p class="text-zinc-400 mt-2">Gerencie seus bots hospedados</p>
+      </div>
+      <button onclick="hospedarNovo()" class="bg-gradient-to-r from-violet-600 to-purple-600 px-8 py-4 rounded-3xl font-semibold flex items-center gap-3 hover:brightness-110 transition">
+        <i class="fa-solid fa-plus"></i> Hospedar Novo Bot
+      </button>
     </div>
 
-    <!-- Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-      <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-        <p class="text-zinc-400 text-sm">Total de Bots</p>
-        <p id="total-bots" class="text-6xl font-bold text-violet-400 mt-2">0</p>
-      </div>
-      <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-        <p class="text-zinc-400 text-sm">RAM Total</p>
-        <p id="total-ram" class="text-6xl font-bold text-blue-400 mt-2">0 MB</p>
-      </div>
-      <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-        <p class="text-zinc-400 text-sm">Bots Online</p>
-        <p id="online-bots" class="text-6xl font-bold text-emerald-400 mt-2">0</p>
-      </div>
-    </div>
-
-    <!-- Bots -->
     <div id="bots-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
 
-    <!-- Empty State -->
     <div id="empty-state" class="hidden text-center py-24">
       <div class="mx-auto w-32 h-32 bg-gradient-to-br from-violet-500 to-blue-500 rounded-3xl flex items-center justify-center text-8xl mb-8">🚀</div>
       <h3 class="text-4xl font-semibold mb-3">Nenhum bot hospedado ainda</h3>
@@ -62,50 +48,43 @@
 
   <script>
     async function loadBots() {
-      try {
-        const res = await fetch('/api/bots');
-        const bots = await res.json();
+      const res = await fetch('/api/bots');
+      const bots = await res.json();
+      const container = document.getElementById('bots-container');
+      const empty = document.getElementById('empty-state');
 
-        document.getElementById('total-bots').textContent = bots.length;
-        document.getElementById('online-bots').textContent = bots.filter(b => b.status === 'online').length;
-        document.getElementById('total-ram').textContent = bots.reduce((sum, b) => sum + (b.ram || 0), 0) + ' MB';
+      if (bots.length === 0) {
+        container.classList.add('hidden');
+        empty.classList.remove('hidden');
+        return;
+      }
 
-        const container = document.getElementById('bots-container');
-        const empty = document.getElementById('empty-state');
+      container.classList.remove('hidden');
+      empty.classList.add('hidden');
+      container.innerHTML = '';
 
-        if (bots.length === 0) {
-          container.classList.add('hidden');
-          empty.classList.remove('hidden');
-          return;
-        }
-
-        container.classList.remove('hidden');
-        empty.classList.add('hidden');
-        container.innerHTML = '';
-
-        bots.forEach(bot => {
-          const card = document.createElement('div');
-          card.className = "card bg-zinc-900 border border-zinc-800 rounded-3xl p-8";
-          card.innerHTML = `
-            <div class="flex justify-between items-start">
-              <h3 class="text-2xl font-semibold">${bot.nome}</h3>
-              <span class="px-6 py-2 text-xs font-medium rounded-3xl ${bot.status === 'online' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}">
-                ${bot.status === 'online' ? 'Online' : 'Offline'}
-              </span>
-            </div>
-            <div class="mt-8 grid grid-cols-2 gap-y-6 text-sm">
-              <div><span class="block text-zinc-400 text-xs">RAM</span><span class="text-4xl font-semibold">${bot.ram} MB</span></div>
-              <div><span class="block text-zinc-400 text-xs">Principal</span><span class="font-mono text-2xl">${bot.mainFile}</span></div>
-            </div>
-            <div class="mt-12 flex gap-3">
-              <button onclick="controlarBot('${bot.id}', 'start')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 py-4 rounded-3xl font-medium">Iniciar</button>
-              <button onclick="controlarBot('${bot.id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-700 py-4 rounded-3xl font-medium">Parar</button>
-              <button onclick="controlarBot('${bot.id}', 'restart')" class="flex-1 bg-amber-600 hover:bg-amber-700 py-4 rounded-3xl font-medium">Reiniciar</button>
-            </div>
-          `;
-          container.appendChild(card);
-        });
-      } catch (e) { console.error(e); }
+      bots.forEach(bot => {
+        const card = document.createElement('div');
+        card.className = "card bg-zinc-900 border border-zinc-800 rounded-3xl p-8";
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <h3 class="text-2xl font-semibold">${bot.nome}</h3>
+            <span class="px-6 py-2 text-xs font-medium rounded-3xl ${bot.status === 'online' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}">
+              ${bot.status === 'online' ? 'Online' : 'Offline'}
+            </span>
+          </div>
+          <div class="mt-8 grid grid-cols-2 gap-y-6 text-sm">
+            <div><span class="block text-zinc-400 text-xs">RAM</span><span class="text-4xl font-semibold">${bot.ram} MB</span></div>
+            <div><span class="block text-zinc-400 text-xs">Principal</span><span class="font-mono text-2xl">${bot.mainFile}</span></div>
+          </div>
+          <div class="mt-12 flex gap-3">
+            <button onclick="controlarBot('${bot.id}', 'start')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 py-4 rounded-3xl font-medium">Iniciar</button>
+            <button onclick="controlarBot('${bot.id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-700 py-4 rounded-3xl font-medium">Parar</button>
+            <button onclick="controlarBot('${bot.id}', 'restart')" class="flex-1 bg-amber-600 hover:bg-amber-700 py-4 rounded-3xl font-medium">Reiniciar</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
     }
 
     async function controlarBot(id, action) {
