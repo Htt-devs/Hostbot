@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HostBot Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="bg-zinc-950 text-white min-h-screen">
+  <div class="max-w-6xl mx-auto p-8">
+    <div class="flex justify-between items-center mb-10">
+      <h1 class="text-4xl font-bold text-purple-500">HostBot Panel</h1>
+      <div class="bg-emerald-500/20 px-4 py-2 rounded-full text-emerald-400 flex items-center gap-2">
+        <div class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+        Online
+      </div>
+    </div>
+
+    <div id="bots" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Bots aparecem aqui automaticamente -->
+    </div>
+  </div>
+
+  <script>
+    async function loadBots() {
+      try {
+        const res = await fetch('/api/bots');
+        const bots = await res.json();
+        const container = document.getElementById('bots');
+        container.innerHTML = '';
+
+        if (bots.length === 0) {
+          container.innerHTML = `<p class="col-span-3 text-center py-20 text-zinc-400">Nenhum bot hospedado ainda.<br>Use /host no Discord.</p>`;
+          return;
+        }
+
+        bots.forEach(bot => {
+          const card = document.createElement('div');
+          card.className = "bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-purple-500 transition-all";
+          card.innerHTML = `
+            <div class="flex justify-between items-start">
+              <h3 class="text-xl font-semibold">${bot.nome}</h3>
+              <span class="px-4 py-1 text-xs rounded-full ${bot.status === 'online' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}">
+                ${bot.status.toUpperCase()}
+              </span>
+            </div>
+            <div class="mt-6 space-y-3 text-sm">
+              <div class="flex justify-between"><span class="text-zinc-400">RAM</span><span class="font-mono">${bot.ram} MB</span></div>
+              <div class="flex justify-between"><span class="text-zinc-400">Principal</span><span class="font-mono">${bot.mainFile}</span></div>
+              <div class="flex justify-between"><span class="text-zinc-400">Usuário</span><span>${bot.usuario}</span></div>
+            </div>
+            <div class="mt-8 flex gap-3">
+              <button onclick="action('${bot.id}', 'start')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 py-3 rounded-2xl text-sm font-medium">Iniciar</button>
+              <button onclick="action('${bot.id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-2xl text-sm font-medium">Parar</button>
+              <button onclick="action('${bot.id}', 'restart')" class="flex-1 bg-amber-600 hover:bg-amber-700 py-3 rounded-2xl text-sm font-medium">Reiniciar</button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function action(id, action) {
+      await fetch(`/api/bots/\( {id}/ \){action}`, { method: 'POST' });
+      loadBots();
+    }
+
+    setInterval(loadBots, 8000);
+    loadBots();
+  </script>
+</body>
+</html>
