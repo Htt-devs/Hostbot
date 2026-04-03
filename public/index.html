@@ -9,13 +9,13 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
-    .card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .card:hover { transform: translateY(-6px); box-shadow: 0 20px 25px -5px rgb(139 92 246 / 0.25); }
+    .card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    .card:hover { transform: translateY(-8px); box-shadow: 0 25px 50px -12px rgb(139 92 246 / 0.3); }
   </style>
 </head>
 <body class="bg-zinc-950 text-white min-h-screen">
   <!-- Top Bar -->
-  <div class="bg-zinc-900 border-b border-zinc-800 px-8 py-6 flex items-center justify-between">
+  <div class="bg-zinc-900 border-b border-zinc-800 px-8 py-6 flex items-center justify-between sticky top-0 z-50">
     <div class="flex items-center gap-4">
       <div class="text-3xl font-bold tracking-tighter bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">HostBot</div>
     </div>
@@ -27,7 +27,7 @@
     </div>
   </div>
 
-  <div class="max-w-7xl mx-auto p-8">
+  <div class="max-w-6xl mx-auto p-8">
     <div class="mb-12">
       <h1 class="text-5xl font-bold tracking-tight">Dashboard</h1>
       <p class="text-zinc-400 mt-2">Gerencie seus bots hospedados</p>
@@ -36,27 +36,27 @@
     <!-- Stats -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
       <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-        <p class="text-zinc-400">Total de Bots</p>
+        <p class="text-zinc-400 text-sm">Total de Bots</p>
         <p id="total-bots" class="text-6xl font-bold text-violet-400 mt-2">0</p>
       </div>
       <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-        <p class="text-zinc-400">RAM Total</p>
+        <p class="text-zinc-400 text-sm">RAM Total</p>
         <p id="total-ram" class="text-6xl font-bold text-blue-400 mt-2">0 MB</p>
       </div>
       <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-        <p class="text-zinc-400">Bots Online</p>
+        <p class="text-zinc-400 text-sm">Bots Online</p>
         <p id="online-bots" class="text-6xl font-bold text-emerald-400 mt-2">0</p>
       </div>
     </div>
 
-    <!-- Bots Grid -->
+    <!-- Bots -->
     <div id="bots-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
 
     <!-- Empty State -->
     <div id="empty-state" class="hidden text-center py-24">
-      <div class="mx-auto w-28 h-28 bg-gradient-to-br from-violet-500 to-blue-500 rounded-3xl flex items-center justify-center text-7xl mb-6">🚀</div>
-      <h3 class="text-3xl font-semibold mb-3">Nenhum bot hospedado</h3>
-      <p class="text-zinc-400">Use o comando <span class="font-mono bg-zinc-900 px-4 py-2 rounded-xl">/host</span> no Discord</p>
+      <div class="mx-auto w-32 h-32 bg-gradient-to-br from-violet-500 to-blue-500 rounded-3xl flex items-center justify-center text-8xl mb-8">🚀</div>
+      <h3 class="text-4xl font-semibold mb-3">Nenhum bot hospedado ainda</h3>
+      <p class="text-zinc-400">Use o comando <span class="font-mono bg-zinc-900 px-4 py-2 rounded-2xl text-violet-400">/host</span> no Discord</p>
     </div>
   </div>
 
@@ -87,17 +87,17 @@
           const card = document.createElement('div');
           card.className = "card bg-zinc-900 border border-zinc-800 rounded-3xl p-8";
           card.innerHTML = `
-            <div class="flex justify-between">
+            <div class="flex justify-between items-start">
               <h3 class="text-2xl font-semibold">${bot.nome}</h3>
               <span class="px-6 py-2 text-xs font-medium rounded-3xl ${bot.status === 'online' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}">
                 ${bot.status === 'online' ? 'Online' : 'Offline'}
               </span>
             </div>
             <div class="mt-8 grid grid-cols-2 gap-y-6 text-sm">
-              <div><span class="text-zinc-400">RAM</span><p class="text-3xl font-bold">${bot.ram} MB</p></div>
-              <div><span class="text-zinc-400">Principal</span><p class="font-mono text-xl">${bot.mainFile}</p></div>
+              <div><span class="block text-zinc-400 text-xs">RAM</span><span class="text-4xl font-semibold">${bot.ram} MB</span></div>
+              <div><span class="block text-zinc-400 text-xs">Principal</span><span class="font-mono text-2xl">${bot.mainFile}</span></div>
             </div>
-            <div class="mt-10 flex gap-3">
+            <div class="mt-12 flex gap-3">
               <button onclick="controlarBot('${bot.id}', 'start')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 py-4 rounded-3xl font-medium">Iniciar</button>
               <button onclick="controlarBot('${bot.id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-700 py-4 rounded-3xl font-medium">Parar</button>
               <button onclick="controlarBot('${bot.id}', 'restart')" class="flex-1 bg-amber-600 hover:bg-amber-700 py-4 rounded-3xl font-medium">Reiniciar</button>
@@ -118,13 +118,10 @@
     }
 
     function loginWithDiscord() {
-      document.getElementById('user-name').innerHTML = 'z1shy';
-      document.getElementById('user-avatar').innerHTML = `<img src="https://i.imgur.com/5f5zY0Z.png" class="w-8 h-8 rounded-2xl" alt="">`;
-      alert('✅ Conectado com sucesso! Agora você pode gerenciar seus bots.');
+      window.location.href = '/auth/discord';
     }
 
-    // Atualiza automaticamente
-    setInterval(loadBots, 7000);
+    setInterval(loadBots, 6000);
     loadBots();
   </script>
 </body>
