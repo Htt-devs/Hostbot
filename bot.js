@@ -4,12 +4,8 @@ import { Client, GatewayIntentBits, ChannelType, EmbedBuilder, PermissionFlagsBi
 import AdmZip from 'adm-zip';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 dotenv.config();
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());
@@ -21,14 +17,13 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages,
   ]
 });
 
 const hostedBots = new Map();
 const ticketsEmProgresso = new Map();
 
-// ==================== DISCORD BOT ====================
+// ==================== DISCORD BOT - COMANDO /host ====================
 client.once('ready', () => {
   console.log(`✅ Bot Discord online como ${client.user.tag}`);
 });
@@ -73,6 +68,7 @@ client.on('messageCreate', async message => {
   const ticket = ticketsEmProgresso.get(message.channel.id);
   if (!ticket || ticket.userId !== message.author.id) return;
 
+  // Etapa 1 - RAM
   if (ticket.etapa === 1) {
     let ram = 0;
     const input = message.content.toUpperCase().trim().replace(/\s/g, '');
@@ -96,6 +92,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
+  // Etapa 2 - Arquivo principal
   if (ticket.etapa === 2) {
     ticket.mainFile = message.content.trim();
     ticket.etapa = 3;
@@ -110,6 +107,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
+  // Etapa 3 - Arquivo ZIP
   if (ticket.etapa === 3 && message.attachments.size > 0) {
     const attachment = message.attachments.first();
     if (!attachment.name.toLowerCase().endsWith('.zip')) return message.reply('❌ Envie um .zip');
@@ -147,8 +145,7 @@ client.on('messageCreate', async message => {
         );
 
       await message.channel.send({ embeds: [success] });
-
-      setTimeout(() => message.channel.delete().catch(() => {}), 10000);
+      setTimeout(() => message.channel.delete().catch(() => {}), 8000);
 
     } catch (err) {
       console.error(err);
@@ -159,13 +156,11 @@ client.on('messageCreate', async message => {
   }
 });
 
-// ==================== AUTH DISCORD (COM CLIENT ID E SECRET FIXOS) ====================
+// ==================== AUTH DISCORD (COM SUA URL EXATA) ====================
 app.get('/auth/discord', (req, res) => {
-  const clientId = "1485093454517371070";
-  const redirectUri = `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`;
-  const authUrl = `https://discord.com/api/oauth2/authorize?client_id=\( {clientId}&redirect_uri= \){encodeURIComponent(redirectUri)}&response_type=code&scope=identify`;
-
-  console.log('Redirecionando para Discord Auth...');
+  const authUrl = "https://discord.com/oauth2/authorize?client_id=1485093454517371070&response_type=code&redirect_uri=https%3A%2F%2Fhostbot-i05r.onrender.com%2Fauth%2Fdiscord%2Fcallback&scope=identify";
+  
+  console.log("🔗 Redirecionando para Discord Auth...");
   res.redirect(authUrl);
 });
 
@@ -176,10 +171,10 @@ app.get('/auth/discord/callback', async (req, res) => {
   try {
     const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
       client_id: "1485093454517371070",
-      client_secret: "0_IJOByjHYSm_-_gGh7qB1VC_FCBrAAU",   // seu secret
+      client_secret: "0_IJOByjHYSm_-_gGh7qB1VC_FCBrAAU",
       grant_type: 'authorization_code',
       code: code,
-      redirect_uri: `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:3000'}/auth/discord/callback`
+      redirect_uri: "https://hostbot-i05r.onrender.com/auth/discord/callback"
     }), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
@@ -188,13 +183,11 @@ app.get('/auth/discord/callback', async (req, res) => {
       headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` }
     });
 
-    const user = userResponse.data;
-    console.log(`✅ Usuário autenticado: \( {user.username} ( \){user.id})`);
-
+    console.log(`✅ Usuário autenticado: ${userResponse.data.username}`);
     res.redirect('/');
   } catch (err) {
     console.error('Erro no callback:', err.response ? err.response.data : err.message);
-    res.send(`Erro ao conectar com Discord.<br><br>Detalhe: ${err.message}`);
+    res.send('Erro ao conectar com Discord. Tente novamente.');
   }
 });
 
